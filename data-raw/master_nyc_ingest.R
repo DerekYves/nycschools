@@ -341,11 +341,12 @@ doerdx <- select(doe,
                  doe_open_year=`Open Date`,
                  doe_address=`Primary Address`,
                  doe_zip=Zip,
-                 doe_city=City,
+                 doe_city=City1,
                  doe_tract=`Census Tract`,
                  doe_bor_block=`Borough Block Lot`,
                  doe_superintendent_code=`Superintendent Location Code`)
 
+table(doerdx$doe_city)
 
 # Join Points data to DOE school roster
 
