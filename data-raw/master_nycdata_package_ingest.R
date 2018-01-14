@@ -2,6 +2,8 @@
 ################################################################################
 ################################################################################
 
+# Reinstall: devtools::install_github(repo = "DerekYves/nycschools", lib=.libPaths()[4])
+
 #### Master Script to Ingest NYC School Survey Data ####
 rm(list=ls())
 
@@ -428,5 +430,32 @@ ttt=select(df, starts_with(stub), test)
 
 # Missing Census Data by city
 group_by(s17, doe_city) %>% summarize(n=n(),missing=sum(is.na(pct_pov)))
-
 table(is.na(s17$pct_pov))
+
+# Load the GSS data
+
+GSS <- readRDS('gss/gss.Rds')
+devtools::use_data(GSS, overwrite = TRUE)
+
+
+# Load World Bank Data
+# install.packages('WDI')
+
+library(WDI)
+WDIsearch('gdp.*capita.*constant')
+gdpna = WDI(indicator='NY.GDP.PCAP.KD', country=c('MX','CA','US'), start=1960, end=2016)
+saveRDS(gdpna, 'world_bank/gdp_north_america.Rds')
+devtools::use_data(gdpna, overwrite = TRUE)
+
+
+
+WDIsearch('unemployment')
+unemp = WDI(indicator='SL.UEM.TOTL.ZS', start=1991, end=2016)
+table(unemp$country)
+saveRDS(unemp, 'world_bank/unemployment.Rds')
+devtools::use_data(unemp, overwrite = TRUE)
+
+
+# library(ggplot2)
+# ggplot(filter(unemp, country=="United States")) + geom_line(aes(x=year, y=SL.UEM.TOTL.ZS))
+# ggplot(filter(gdp, country=="United States")) + geom_line(aes(x=year, y=NY.GDP.PCAP.KD))
