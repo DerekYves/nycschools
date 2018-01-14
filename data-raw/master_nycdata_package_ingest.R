@@ -459,3 +459,14 @@ devtools::use_data(unemp, overwrite = TRUE)
 # library(ggplot2)
 # ggplot(filter(unemp, country=="United States")) + geom_line(aes(x=year, y=SL.UEM.TOTL.ZS))
 # ggplot(filter(gdp, country=="United States")) + geom_line(aes(x=year, y=NY.GDP.PCAP.KD))
+
+# Gapminder data
+# install.packages("gapminder")
+library(gapminder)
+dir.create('gapminder', showWarnings=FALSE)
+gp <- gapminder
+write.csv(gp, 'gapminder/gp.csv', row.names=FALSE)
+devtools::use_data(gp, overwrite = TRUE)
+
+setwd('..')
+roxygen2::roxygenise()
