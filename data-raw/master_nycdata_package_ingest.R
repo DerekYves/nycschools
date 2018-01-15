@@ -241,7 +241,7 @@ table(sub("^p_q\\d+._", "", names(p)))
 ################################################################################
 ################################################################################
 
-#### Load Point Data
+#### Load Points Data
 
 # Source: https://data.cityofnewyork.us/Education/School-Point-Locations/jfju-ynrr
 
@@ -256,13 +256,20 @@ summary(shp)
 pj <- data.frame(project(shp@coords, pstr, inverse=TRUE))
 pj <- cbind(pj, shp@data)
 
-pjr <- select(pj, lat=X2, lng=X1, dbn=ATS_CODE, points_schoolname=SCHOOLNAME)
-pjr$dbn <- stringr::str_trim(as.character(pjr$dbn))
+school_points <- select(pj, lat=X2, lng=X1, dbn=ATS_CODE, points_schoolname=SCHOOLNAME)
+school_points$dbn <- stringr::str_trim(as.character(school_points$dbn))
 
 # View(shp@data)
 # View(shp@coords)
 
 # plot(shp)
+
+# library(ggplot2)
+# # now create a ggplot map
+# ggplot() +  geom_point( data= school_points, aes(x=lng, y=lat), color="red")
+
+devtools::use_data(school_points, overwrite = TRUE)
+
 
 ################################################################################
 ################################################################################
@@ -356,7 +363,7 @@ outersect <- function(x, y) {
     sort(c(setdiff(x, y),
            setdiff(y, x)))
 }
-# outersect(doerdx$dbn, pjr$dbn)
+# outersect(doerdx$dbn, school_points$dbn)
 
 
 ################################################################################
@@ -377,8 +384,8 @@ table(surveys_2017$dbn %in% doerdx$dbn)
 
 
 ## Points data matches for the survey file
-table(surveys_2016$dbn %in% pjr$dbn) # Missing 175
-table(surveys_2017$dbn %in% pjr$dbn) # Missing 176
+table(surveys_2016$dbn %in% school_points$dbn) # Missing 175
+table(surveys_2017$dbn %in% school_points$dbn) # Missing 176
 
 # Missing Census tracts from DOE tract list:
 table(doerdx$GEOID %in% cen$GEOID) # None
@@ -390,7 +397,7 @@ sch_dat <- left_join(doerdx, cen)
 nrow(sch_dat)==nrow(doerdx)
 
 # Join the points data where available
-sch_dat <- left_join(sch_dat, pjr)
+sch_dat <- left_join(sch_dat, school_points)
 
 # Join metadata to survey data
 s16 <- right_join(sch_dat, surveys_2016)
@@ -470,3 +477,5 @@ devtools::use_data(gp, overwrite = TRUE)
 
 setwd('..')
 roxygen2::roxygenise()
+
+
