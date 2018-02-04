@@ -1,11 +1,12 @@
 Package: nycschools
 Type: Package
 Title: NYC School Data for Sociology 345, Lehman College
-Version: 0.1.0
+Version: 0.2.0
 Author: Derek Darves
 Maintainer: Derek Darves <darves@gmail.comt>
-Description: NYC School Survey Results Joined with Census and School Meta Data
-License: BSD
+Description: NYC School Survey Results Joined with Census and School Meta Data.
+Depends: R (>= 2.10)
+License: GPL-3
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 6.0.1

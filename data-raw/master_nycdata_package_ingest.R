@@ -12,7 +12,6 @@ rm(list=ls())
 # User Defined Parameters
 
 na_strings <- c('N/A', '', 'Not Scored')
-# prjdir <- '~/Dropbox/courses/soc345/data/nyc_school_surey/'
 
 prjdir <- '~/projects/nycschools/data-raw/'
 report_statabbr <- "NY"
@@ -51,7 +50,7 @@ p <- read_csv(paste0(years[yr], '/data/parent_', years[yr], '_score.csv'), na=na
 
 p = p[, sapply(p, function(i) !all(is.na(i)))] # Drop entirely NA cols
 
-# Should be empty
+# This Should be empty
 unique(select_if(select(p, -dbn, -locationname, -school_type), is.character))
 
 
@@ -173,10 +172,18 @@ cat("Starting", years[yr], "\n")
 p <- read_csv(paste0(years[yr], '/data/parent_', years[yr], '_score.csv'), na=na_strings)
 nrow(p)
 
+# 5d and 5e have mostly missing data
+p <- select(p, -starts_with('p_q5d'))
+p <- select(p, -starts_with('p_q5e'))
+
 # View(p[, sapply(p, function(i) all(is.na(i)))]) # only five empty cols, q5
+
+# Should not be any dropped cols
 p = p[, sapply(p, function(i) !all(is.na(i)))] # Drop entirely NA cols
 
 p <- rename(p, p_rr_par=p_rr, locationname_par=locationname)
+
+# Lots of missng data: p$p_q5e_idk
 
 # Data Checks:  DBN 02M051
 p$p_q1e_a[p$dbn== '02M051'] # 85  (85 in nsource)
@@ -189,6 +196,9 @@ unique(select_if(select(p, -dbn, -locationname_par), is.character))
 ## 2017 Student File (N=1,121 in raw source file)
 s <- read_csv(paste0(years[yr], '/data/student_', years[yr], '_score.csv'), na=na_strings)
 nrow(s)
+
+# These are grade 6-8 student questons, many therefore missing in HS file, droppped
+s <- select(s, -starts_with('s_q9'))
 
 s <- s[, sapply(s, function(i) !all(is.na(i)))] # no change
 s <- rename(s, s_rr_stu=s_rr, locationname_stu=locationname)
@@ -268,7 +278,7 @@ school_points$dbn <- stringr::str_trim(as.character(school_points$dbn))
 # # now create a ggplot map
 # ggplot() +  geom_point( data= school_points, aes(x=lng, y=lat), color="red")
 
-devtools::use_data(school_points, overwrite = TRUE)
+# devtools::use_data(school_points, overwrite = TRUE)
 
 
 ################################################################################
@@ -405,7 +415,8 @@ nrow(s16)==nrow(surveys_2016)
 saveRDS(s16, paste0(2016, '/data/merged_', 2016, '_all_vars.Rds'))
 save(list="s16", file=paste0(2016, '/data/merged_', 2016, '_all_vars.RData'))
 
-devtools::use_data(s16, overwrite = TRUE)
+# Depracated
+# devtools::use_data(s16, overwrite = TRUE)
 
 
 s17 <- right_join(sch_dat, surveys_2017)
@@ -413,13 +424,13 @@ nrow(s17)==nrow(surveys_2017)
 saveRDS(s17, paste0(2017, '/data/merged_', 2017, '_all_vars.Rds'))
 save(list="s17", file=paste0(2017, '/data/merged_', 2017, '_all_vars.RData'))
 
+# Depracated
 # Save out the master files to the package
-devtools::use_data(s17, overwrite = TRUE)
+# devtools::use_data(s17, overwrite = TRUE)
 
 
 # Function to calculate scores for a stub
 df=s17
-stub="s_q10a"
 
 score_calc <- function(df, stub, percent_positive=TRUE) {
     names <- names(df)[grepl(stub, names(df))]
@@ -430,19 +441,108 @@ score_calc <- function(df, stub, percent_positive=TRUE) {
     return(100 * ( num / denom ))
 }
 
+# Save only highschools in four boroughs
+hs <-filter(df, doe_grade_cat=="High school") 
+table(hs$doe_city)
 
-stub="s_q5c"
-df$test <- score_calc(df,  stub)
-ttt=select(df, starts_with(stub), test)
+hs <-filter(hs, doe_city %in% c("BRONX", "BROOKLYN", "MANHATTAN", "QUEENS", "JACKSON HEIGHTS", "JAMAICA", "ROCKAWAY PARK") )
+hs$doe_city[hs$doe_city %in% c("JACKSON HEIGHTS", "JAMAICA", "ROCKAWAY PARK")] <- "QUEENS"
+table(hs$doe_city)
+
+# Save composite scores
+
+# Get the stubs:
+
+studstub <- names(hs)[ grepl("^s_q[[:digit:]]", names(hs)) ]
+(studstub <- unique(gsub("(^s_q[[:digit:]]{1,2}[[:alpha:]])_[[:alpha:]]{1,6}$", "\\1", studstub)))
+
+
+parstub <- names(hs)[ grepl("^p_q[[:digit:]]", names(hs)) ]
+(parstub <- unique(gsub("(^p_q[[:digit:]]{1,2}[[:alpha:]])_[[:alpha:]]{1,6}$", "\\1",parstub)))
+
+stubs <- c(studstub, parstub)
+
+for(i in seq_along(stubs) ) {
+    hs[[ paste(stubs[i], '_score', sep='')]] <- round(score_calc(hs,  stubs[i]))
+}
+
 
 # Missing Census Data by city
-group_by(s17, doe_city) %>% summarize(n=n(),missing=sum(is.na(pct_pov)))
-table(is.na(s17$pct_pov))
+group_by(hs, doe_city) %>% summarize(n=n(),missing=sum(is.na(pct_pov)))
+table(is.na(hs$pct_pov))
 
-# Load the GSS data
+# Drop schools without census poverty measures
+hs <- filter(hs, !is.na(pct_pov))
 
-GSS <- readRDS('gss/gss.Rds')
-devtools::use_data(GSS, overwrite = TRUE)
+# Fix open year
+table(hs$doe_open_year, useNA='always')
+hs$oyr <- gsub("\\s{2,}", " ", hs$doe_open_year)
+table(hs$oyr, useNA='always')
+hs$open_year <- as.Date(x=hs$oyr, format='%b %d %Y')
+table(hs$open_year, useNA='always')
+# View(select(hs, contains("year")) )
+
+hs$years_open <- round( (Sys.Date() - hs$open_year) / 365.25, digits=1)
+
+table(hs$doe_grade_cat)
+hs$doe_address
+
+hs$p_rr_tot
+
+hs_out <- select(hs,
+             doe_city,
+             doe_name,
+             doe_address,
+             doe_zip,
+             open_year,
+             years_open,
+             doe_grade_levels,
+             lat,
+             lng,
+             
+             # Census
+             pct_pop_change,
+             pct_any_health_care_u65=pct_any_hc_u65,
+             pct_unv_deg, pct_under_hs,
+             med_house_income=est_med_hinc, # Median Household Income in the Past 12 Months (In 2014 Inflation-Adjusted Dollars) By Household Size
+             pct_poverty=pct_pov, pct_income_100k_up=pct_inc_100k_up, pct_income_150k_up=pct_inc_150k_up,
+             pct_black, pct_amind, pct_asian, pct_nhpi, pct_oth, pct_mlt_r, pct_nonwht,pct_latin,
+             
+             parent_resp_rate=p_rr_tot,
+             student_resp_rate=s_rr_tot,
+             total_resp_rate=t_rr_tot,
+             
+             # School variables
+             colab,
+             eff_leaders,
+             rig_instr,
+             supp_env,
+             stg_ties,
+             trust,
+             
+             ends_with('_score'),
+             
+             
+             # Modify this to select the question you are interested in
+             s_q5a_none, s_q5a_few, s_q5a_most, s_q5a_all, # 5a. In how many of your classes are you challenged?
+             s_q5c_none, s_q5c_few, s_q5c_most, s_q5c_all, # 5c. In how many of your classes do your teachers ask difficult questions in class?
+             s_q7a_sd, s_q7a_d, s_q7a_a, s_q7a_sa         # 7d. I feel safe in my classes at this school.
+             
+)
+
+class(hs_out)
+
+s17 <- as.data.frame(hs_out)
+class(s17)
+str(s17)
+
+devtools::use_data(s17, overwrite = TRUE)
+write.csv(s17, '2017_high_school_file.csv', row.names=FALSE)
+
+# #### Load the GSS data
+# 
+# GSS <- readRDS('gss/gss.Rds')
+# devtools::use_data(GSS, overwrite = TRUE)
 
 
 # Load World Bank Data
@@ -459,6 +559,9 @@ devtools::use_data(gdpna, overwrite = TRUE)
 WDIsearch('unemployment')
 unemp = WDI(indicator='SL.UEM.TOTL.ZS', start=1991, end=2016)
 table(unemp$country)
+
+unemp$country <- stringi::stri_trans_general(unemp$country, "latin-ascii")
+
 saveRDS(unemp, 'world_bank/unemployment.Rds')
 devtools::use_data(unemp, overwrite = TRUE)
 
